@@ -49,6 +49,16 @@ export class MockProvider implements PhoneProvider {
     // no-op
   }
 
+  async configureNumberWebhooks(): Promise<void> {
+    // no-op — the mock provider has no real webhooks to set.
+  }
+
+  async findOwnedNumber(e164Number: string): Promise<BoughtNumber | null> {
+    // In mock mode, pretend the number is owned so the import flow is testable
+    // locally without a Twilio account.
+    return { e164Number, providerSid: `PNmock${randHex(30)}` };
+  }
+
   async sendSms(_params: SendSmsParams): Promise<SendSmsResult> {
     return { providerSid: `SMmock${randHex(30)}`, status: 'sent' };
   }

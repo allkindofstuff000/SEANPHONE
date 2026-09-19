@@ -26,6 +26,7 @@ app.get('/api/health', (_req, res) => {
   res.json({
     status: 'ok',
     service: 'phone-dashboard-api',
+    provider: provider.name,
     time: new Date().toISOString(),
   });
 });

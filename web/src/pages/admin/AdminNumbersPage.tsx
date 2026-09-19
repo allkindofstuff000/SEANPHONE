@@ -37,6 +37,8 @@ export default function AdminNumbersPage() {
   const [available, setAvailable] = useState<Available[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [providerName, setProviderName] = useState('');
+  const [importE164, setImportE164] = useState('');
+  const [importing, setImporting] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -83,6 +85,21 @@ export default function AdminNumbersPage() {
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Purchase failed');
+    }
+  }
+
+  async function importNumber() {
+    if (!importE164.trim()) return;
+    setImporting(true);
+    setError(null);
+    try {
+      await api.post('/numbers/import', { e164Number: importE164 });
+      setImportE164('');
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Import failed');
+    } finally {
+      setImporting(false);
     }
   }
 
@@ -137,6 +154,24 @@ export default function AdminNumbersPage() {
               PROVIDER: {providerName.toUpperCase()}
             </span>
           )}
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
+          <span className="text-xs tracking-widest text-muted-foreground">
+            IMPORT OWNED
+          </span>
+          <input
+            value={importE164}
+            onChange={(e) => setImportE164(e.target.value)}
+            placeholder="+1 555 123 4567"
+            className={`w-56 ${inputCls}`}
+          />
+          <button onClick={importNumber} disabled={importing} className={btnGhost}>
+            {importing ? 'IMPORTING…' : 'IMPORT'}
+          </button>
+          <span className="text-[10px] text-muted-foreground/70">
+            register a number already on your provider account
+          </span>
         </div>
 
         {available && (

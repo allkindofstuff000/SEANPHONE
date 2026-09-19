@@ -4,6 +4,7 @@ import { prisma } from '../prisma';
 import { asyncHandler, ApiError } from '../middleware/error';
 import { authenticate, requireRole } from '../middleware/auth';
 import { provider, smsWebhookUrl } from '../services/providerService';
+import { normalizeE164 } from '../lib/phone';
 
 const router = Router();
 
@@ -128,6 +129,49 @@ router.post(
   }),
 );
 
+const importSchema = z.object({ e164Number: z.string().min(5) });
+
+// POST /api/numbers/import — register a number ALREADY owned on the provider
+// account (e.g. a Twilio trial number) instead of buying a new one.
+router.post(
+  '/import',
+  asyncHandler(async (req, res) => {
+    const parsed = importSchema.parse(req.body);
+    const e164 = normalizeE164(parsed.e164Number);
+    if (!e164) throw new ApiError(400, 'Invalid phone number');
+
+    const existing = await prisma.phoneNumber.findUnique({
+      where: { e164Number: e164 },
+    });
+    if (existing) throw new ApiError(409, 'Number already provisioned');
+
+    const owned = await provider.findOwnedNumber(e164);
+    if (!owned) {
+      throw new ApiError(404, 'That number is not on your provider account');
+    }
+
+    // Point its inbound SMS webhook at us (best-effort; needs PUBLIC_BASE_URL).
+    if (smsWebhookUrl()) {
+      try {
+        await provider.configureNumberWebhooks(owned.providerSid, {
+          smsWebhookUrl: smsWebhookUrl(),
+        });
+      } catch {
+        // best effort — still register it locally
+      }
+    }
+
+    const number = await prisma.phoneNumber.create({
+      data: {
+        e164Number: owned.e164Number,
+        twilioSid: owned.providerSid,
+        status: 'active',
+      },
+    });
+    res.status(201).json({ number });
+  }),
+);
+
 const assignSchema = z.object({ userId: z.string().nullable() });
 
 // POST /api/numbers/:id/assign — assign to a worker (or null to unassign)
@@ -151,6 +195,19 @@ router.post(
       data: { assignedUserId: userId },
       include: { assignedUser: { select: { id: true, email: true } } },
     });
+
+    // Ensure the number's inbound webhook is correct on the provider whenever we
+    // touch it (idempotent; best-effort; only meaningful for real Twilio numbers).
+    if (updated.twilioSid && smsWebhookUrl()) {
+      try {
+        await provider.configureNumberWebhooks(updated.twilioSid, {
+          smsWebhookUrl: smsWebhookUrl(),
+        });
+      } catch {
+        // best effort
+      }
+    }
+
     res.json({ number: updated });
   }),
 );

@@ -68,6 +68,25 @@ export class TwilioProvider implements PhoneProvider {
     await this.client.incomingPhoneNumbers(providerSid).remove();
   }
 
+  async configureNumberWebhooks(
+    providerSid: string,
+    opts: { smsWebhookUrl?: string },
+  ): Promise<void> {
+    await this.client.incomingPhoneNumbers(providerSid).update({
+      smsUrl: opts.smsWebhookUrl,
+      smsMethod: 'POST',
+    });
+  }
+
+  async findOwnedNumber(e164Number: string): Promise<BoughtNumber | null> {
+    const list = await this.client.incomingPhoneNumbers.list({
+      phoneNumber: e164Number,
+      limit: 1,
+    });
+    const n = list[0];
+    return n ? { e164Number: n.phoneNumber, providerSid: n.sid } : null;
+  }
+
   async sendSms({
     from,
     to,

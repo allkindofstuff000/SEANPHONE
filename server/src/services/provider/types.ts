@@ -48,6 +48,14 @@ export interface PhoneProvider {
     opts: { smsWebhookUrl?: string },
   ): Promise<BoughtNumber>;
   releaseNumber(providerSid: string): Promise<void>;
+  // Re-apply a number's webhook config on the provider (idempotent).
+  configureNumberWebhooks(
+    providerSid: string,
+    opts: { smsWebhookUrl?: string },
+  ): Promise<void>;
+  // Look up a number already owned on the provider account, so an existing /
+  // trial number can be imported instead of bought. Returns null if not found.
+  findOwnedNumber(e164Number: string): Promise<BoughtNumber | null>;
   sendSms(params: SendSmsParams): Promise<SendSmsResult>;
 
   // Inbound webhook helpers (normalize per-provider payloads/signatures).
