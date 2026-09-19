@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  typecheck:
+    name: Typecheck (server + web)
+    runs-on: ubuntu-latest
+    env:
+      # Dummy value so `prisma generate` can resolve env("DATABASE_URL").
+      # CI never connects to a database — it only generates the Prisma client
+      # and runs the TypeScript compiler.
+      DATABASE_URL: postgresql://user:pass@localhost:5432/ci?schema=public
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Typecheck server
+        run: npx tsc --noEmit -p server/tsconfig.json
+
+      - name: Typecheck web
+        run: npx tsc --noEmit -p web/tsconfig.json

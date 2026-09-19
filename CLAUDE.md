@@ -164,6 +164,9 @@ npx tsc --noEmit -p server/tsconfig.json
 npx tsc --noEmit -p web/tsconfig.json
 ```
 
+**CI:** `.github/workflows/ci.yml` runs both typechecks (plus `prisma generate`)
+on every push / PR to `main`. Keep it green.
+
 ## UI theme ("seanphone-refinement")
 
 Copied from the client's Replit mockups. Tokens live in `web/src/index.css`
