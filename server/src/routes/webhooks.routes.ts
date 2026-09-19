@@ -1,6 +1,10 @@
 import { Router } from 'express';
-import { provider, smsWebhookUrl } from '../services/providerService';
-import { handleInbound } from '../services/messageService';
+import {
+  provider,
+  smsWebhookUrl,
+  statusWebhookUrl,
+} from '../services/providerService';
+import { handleInbound, handleStatusUpdate } from '../services/messageService';
 import { asyncHandler } from '../middleware/error';
 
 const router = Router();
@@ -26,6 +30,30 @@ router.post(
     await handleInbound(parsed);
 
     // Empty TwiML — we don't auto-reply (the AI bot will hook in here later).
+    res
+      .type('text/xml')
+      .send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+  }),
+);
+
+// POST /webhooks/twilio/status — outbound delivery-status callbacks.
+// Signature-validated the same way as inbound.
+router.post(
+  '/twilio/status',
+  asyncHandler(async (req, res) => {
+    const signature = req.header('X-Twilio-Signature') ?? undefined;
+    const url =
+      statusWebhookUrl() ??
+      `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+    const params = (req.body ?? {}) as Record<string, unknown>;
+
+    if (!provider.validateInbound({ signature, url, params })) {
+      return res.status(403).type('text/xml').send('<Response></Response>');
+    }
+
+    const update = provider.parseStatus(params);
+    if (update.providerSid) await handleStatusUpdate(update);
+
     res
       .type('text/xml')
       .send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');

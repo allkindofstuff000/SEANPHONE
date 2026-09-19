@@ -417,7 +417,23 @@ function FocusedThread({
                       }`}
                     >
                       {timeUtc6(m.createdAt)}
-                      {m.direction === 'outbound' ? ` · ${m.status}` : ''}
+                      {m.direction === 'outbound' && (
+                        <>
+                          {' · '}
+                          <span
+                            className={
+                              m.status === 'delivered'
+                                ? 'text-primary-foreground'
+                                : m.status === 'failed' ||
+                                    m.status === 'undelivered'
+                                  ? 'font-semibold text-red-900'
+                                  : 'text-primary-foreground/60'
+                            }
+                          >
+                            {m.status === 'delivered' ? 'delivered ✓' : m.status}
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -39,6 +39,12 @@ export type InboundSms = {
   providerSid: string;
 };
 
+export type StatusUpdate = {
+  providerSid: string;
+  status: string; // raw provider status: queued/sent/delivered/failed/undelivered
+  errorCode?: string;
+};
+
 export interface PhoneProvider {
   readonly name: string;
 
@@ -65,4 +71,5 @@ export interface PhoneProvider {
     params: Record<string, unknown>;
   }): boolean;
   parseInbound(body: Record<string, unknown>): InboundSms;
+  parseStatus(body: Record<string, unknown>): StatusUpdate;
 }

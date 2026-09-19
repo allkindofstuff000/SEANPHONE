@@ -3,7 +3,7 @@ import { prisma } from '../prisma';
 import { env } from '../env';
 import { ApiError } from '../middleware/error';
 import { adjustCredits } from './creditService';
-import { provider } from './providerService';
+import { provider, statusWebhookUrl } from './providerService';
 import { normalizeE164 } from '../lib/phone';
 
 type Tx = Prisma.TransactionClient;
@@ -103,6 +103,7 @@ export async function sendOutbound(params: {
       from: number.e164Number,
       to,
       body,
+      statusCallbackUrl: statusWebhookUrl(),
     });
     return prisma.message.update({
       where: { id: message.id },
@@ -113,9 +114,15 @@ export async function sendOutbound(params: {
     await prisma.$transaction(async (tx) => {
       await tx.message.update({
         where: { id: message.id },
-        data: { status: 'failed' },
+        data: { status: 'failed', statusUpdatedAt: new Date() },
       });
-      if (cost > 0) {
+      // Claim the one-shot refund guard so a later status callback can't
+      // double-refund the same message.
+      const claimed = await tx.message.updateMany({
+        where: { id: message.id, refundedAt: null },
+        data: { refundedAt: new Date() },
+      });
+      if (cost > 0 && claimed.count === 1) {
         await adjustCredits(senderId, cost, `Refund: failed SMS to ${to}`, {
           relatedMessageId: message.id,
           tx,
@@ -174,4 +181,59 @@ export async function handleInbound(input: {
   });
 
   return { message };
+}
+
+// Apply a delivery-status callback (from the provider webhook or the dev
+// simulator). Status advances monotonically (queued → sent → delivered;
+// failed/undelivered are terminal), and a terminal failure refunds the
+// message's reserved credits exactly once. Idempotent for retried /
+// out-of-order callbacks.
+export async function handleStatusUpdate(input: {
+  providerSid: string;
+  status: string;
+}) {
+  const message = await prisma.message.findUnique({
+    where: { twilioSid: input.providerSid },
+  });
+  if (!message) return { ignored: true as const, reason: 'unknown message SID' };
+
+  const newStatus = mapStatus(input.status);
+  const rank: Record<string, number> = { queued: 0, sent: 1, delivered: 2 };
+  const isFailure = newStatus === 'failed' || newStatus === 'undelivered';
+  const advances =
+    isFailure || (rank[newStatus] ?? -1) > (rank[message.status] ?? -1);
+
+  await prisma.$transaction(async (tx) => {
+    if (advances) {
+      await tx.message.update({
+        where: { id: message.id },
+        data: { status: newStatus, statusUpdatedAt: new Date() },
+      });
+    }
+    if (isFailure) {
+      // Refund exactly once by atomically claiming the guard.
+      const claimed = await tx.message.updateMany({
+        where: { id: message.id, refundedAt: null },
+        data: { refundedAt: new Date() },
+      });
+      if (claimed.count === 1) {
+        // Refund the exact amount originally debited for this message.
+        const debit = await tx.ledgerEntry.findFirst({
+          where: { relatedMessageId: message.id, amount: { lt: 0 } },
+          orderBy: { createdAt: 'asc' },
+        });
+        if (debit) {
+          await adjustCredits(
+            debit.userId,
+            -debit.amount,
+            `Refund: ${newStatus} SMS to ${message.toNumber}`,
+            { relatedMessageId: message.id, tx },
+          );
+        }
+      }
+    }
+  });
+
+  const updated = await prisma.message.findUnique({ where: { id: message.id } });
+  return { message: updated };
 }

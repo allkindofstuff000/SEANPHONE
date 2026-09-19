@@ -94,9 +94,13 @@ model Message {
   body           String
   fromNumber     String
   toNumber       String
-  twilioSid      String?          @unique
-  status         MessageStatus    @default(queued)
-  createdAt      DateTime         @default(now())
+  twilioSid       String?          @unique
+  status          MessageStatus    @default(queued)
+  // Delivery lifecycle (Task 2): last status change time, and a one-shot guard
+  // so a message's reserved credits are refunded at most once.
+  statusUpdatedAt DateTime?
+  refundedAt      DateTime?
+  createdAt       DateTime         @default(now())
 
   ledgerEntries  LedgerEntry[]
 

@@ -5,6 +5,7 @@ import type {
   SendSmsParams,
   SendSmsResult,
   InboundSms,
+  StatusUpdate,
   AvailableNumber,
 } from './types';
 
@@ -81,6 +82,21 @@ export class MockProvider implements PhoneProvider {
       to: pick('To', 'to'),
       body: pick('Body', 'body'),
       providerSid: pick('MessageSid', 'messageSid', 'sid') || `SMmock${randHex(30)}`,
+    };
+  }
+
+  parseStatus(body: Record<string, unknown>): StatusUpdate {
+    const pick = (...keys: string[]) => {
+      for (const k of keys) {
+        const v = body[k];
+        if (v != null && v !== '') return String(v);
+      }
+      return '';
+    };
+    return {
+      providerSid: pick('MessageSid', 'SmsSid', 'messageSid', 'sid'),
+      status: pick('MessageStatus', 'SmsStatus', 'status'),
+      errorCode: body.ErrorCode != null ? String(body.ErrorCode) : undefined,
     };
   }
 }

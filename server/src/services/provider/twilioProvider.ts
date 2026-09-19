@@ -6,6 +6,7 @@ import type {
   SendSmsParams,
   SendSmsResult,
   InboundSms,
+  StatusUpdate,
   AvailableNumber,
 } from './types';
 
@@ -126,6 +127,14 @@ export class TwilioProvider implements PhoneProvider {
       to: String(body.To ?? ''),
       body: String(body.Body ?? ''),
       providerSid: String(body.MessageSid ?? ''),
+    };
+  }
+
+  parseStatus(body: Record<string, unknown>): StatusUpdate {
+    return {
+      providerSid: String(body.MessageSid ?? body.SmsSid ?? ''),
+      status: String(body.MessageStatus ?? body.SmsStatus ?? ''),
+      errorCode: body.ErrorCode != null ? String(body.ErrorCode) : undefined,
     };
   }
 }

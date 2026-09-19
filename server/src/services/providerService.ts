@@ -35,3 +35,10 @@ export function smsWebhookUrl(): string | undefined {
     ? `${env.PUBLIC_BASE_URL}/webhooks/twilio/sms`
     : undefined;
 }
+
+// The public URL Twilio should POST outbound delivery-status callbacks to.
+export function statusWebhookUrl(): string | undefined {
+  return env.PUBLIC_BASE_URL
+    ? `${env.PUBLIC_BASE_URL}/webhooks/twilio/status`
+    : undefined;
+}
