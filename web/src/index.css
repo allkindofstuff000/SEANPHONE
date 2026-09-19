@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+/* SEANPHONE "refined" theme — tokens mirror the seanphone-refinement mockup. */
+@theme {
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "DM Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-background: #101716;
+  --color-foreground: #edf2ee;
+  --color-card: #171f1e;
+  --color-card-foreground: #edf2ee;
+  --color-border: #2b3935;
+  --color-input: #2b3935;
+  --color-muted: #171f1e;
+  --color-muted-foreground: #93a49e;
+  --color-primary: #9ee9c3;
+  --color-primary-foreground: #133126;
+  --color-warning: #e8c26b;
+  --color-warning-foreground: #101716;
+  --color-destructive: #f0776f;
+  --color-destructive-foreground: #101716;
+
+  --radius: 10px;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #101716;
+  color: #edf2ee;
+  font-family: var(--font-sans);
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  border-color: #2b3935;
+}
+
+/* Thin dark scrollbars to match the theme. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2b3935 transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #2b3935;
+  border-radius: 8px;
+}

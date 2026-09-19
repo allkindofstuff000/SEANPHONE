@@ -1,0 +1,26 @@
+{
+  "name": "sean-phone-algo",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Internal cloud phone dashboard — SMS relay foundation",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "predev": "node scripts/ensure-db.mjs",
+    "dev": "concurrently -k -n api,web -c blue,green \"npm:dev:server\" \"npm:dev:web\"",
+    "dev:server": "npm run dev -w server",
+    "dev:web": "npm run dev -w web",
+    "build": "npm run build -w server && npm run build -w web",
+    "db:start": "node scripts/ensure-db.mjs",
+    "db:stop": "node scripts/stop-db.mjs",
+    "db:generate": "npm run db:generate -w server",
+    "db:migrate": "npm run db:migrate -w server",
+    "db:studio": "npm run db:studio -w server",
+    "db:seed": "npm run db:seed -w server"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1"
+  }
+}

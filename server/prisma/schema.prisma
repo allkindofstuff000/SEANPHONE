@@ -1,0 +1,120 @@
+// Prisma schema for the internal phone dashboard.
+// Data model: User, PhoneNumber, Conversation, Message, LedgerEntry.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  admin
+  worker
+}
+
+enum NumberStatus {
+  active
+  released
+}
+
+enum MessageDirection {
+  inbound
+  outbound
+}
+
+enum MessageStatus {
+  queued
+  sent
+  delivered
+  received
+  failed
+  undelivered
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  role          Role     @default(worker)
+  isActive      Boolean  @default(true)
+  // Balance in whole credits (the smallest internal unit). Never write this
+  // field directly — always go through the credit service so a LedgerEntry is
+  // recorded alongside it.
+  creditBalance Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  phoneNumbers  PhoneNumber[]
+  ledgerEntries LedgerEntry[]
+
+  @@index([role])
+}
+
+model PhoneNumber {
+  id             String       @id @default(cuid())
+  e164Number     String       @unique
+  twilioSid      String?      @unique
+  status         NumberStatus @default(active)
+  assignedUserId String?
+  assignedUser   User?        @relation(fields: [assignedUserId], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  conversations  Conversation[]
+
+  @@index([assignedUserId])
+}
+
+model Conversation {
+  id             String      @id @default(cuid())
+  workerNumberId String
+  workerNumber   PhoneNumber @relation(fields: [workerNumberId], references: [id], onDelete: Cascade)
+  // The external party's number, in E.164.
+  contactNumber  String
+  lastMessageAt  DateTime    @default(now())
+  // Set when a user marks the thread read; unread = newer inbound message exists.
+  lastReadAt     DateTime?
+  createdAt      DateTime    @default(now())
+
+  messages       Message[]
+
+  // One thread per (worker number <-> contact) pair.
+  @@unique([workerNumberId, contactNumber])
+  @@index([lastMessageAt])
+}
+
+model Message {
+  id             String           @id @default(cuid())
+  conversationId String
+  conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  direction      MessageDirection
+  body           String
+  fromNumber     String
+  toNumber       String
+  twilioSid      String?          @unique
+  status         MessageStatus    @default(queued)
+  createdAt      DateTime         @default(now())
+
+  ledgerEntries  LedgerEntry[]
+
+  @@index([conversationId, createdAt])
+}
+
+model LedgerEntry {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Signed amount: negative = debit (e.g. sending SMS), positive = credit (top-up).
+  amount           Int
+  reason           String
+  relatedMessageId String?
+  relatedMessage   Message? @relation(fields: [relatedMessageId], references: [id], onDelete: SetNull)
+  // Snapshot of the user's balance immediately after this entry, for auditing.
+  balanceAfter     Int
+  createdAt        DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
